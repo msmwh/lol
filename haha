@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Define the URL for the China IP address list
+CHINA_IP_LIST_URL="http://www.ipdeny.com/ipblocks/data/countries/cn.zone"
+
+# Define the name of the IPSet list
+IPSET_LIST_NAME="china"
+
+# Check if ipset is installed
+if ! command -v ipset &>/dev/null; then
+    echo "Error: ipset is not installed. Please install ipset."
+    exit 1
+fi
+
+# Create or flush the IPSet list
+ipset create $IPSET_LIST_NAME hash:net -exist
+ipset flush $IPSET_LIST_NAME
+
+# Download the China IP address list and add it to the IPSet list
+wget -O - $CHINA_IP_LIST_URL | while read -r line; do
+    ipset add $IPSET_LIST_NAME $line
+done
+
+# Create or flush the OUTPUT chain (optional, depends on your existing iptables rules)
+iptables -F OUTPUT
+
+# Add or update the iptables rule to drop traffic from the IPSet list
+iptables -A OUTPUT -m set --match-set $IPSET_LIST_NAME dst -j DROP
+
+# Save the iptables rules to make them persistent
+service iptables save
+
+echo "China IP blocking script completed."
